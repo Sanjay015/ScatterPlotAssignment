@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Deloitte Assignment</title>
+
+  <link rel="stylesheet" href="static/bootstrap.min.css">
+
+  <script src="static/jquery.min.js"></script>
+
+  <script src="static/bootstrap.min.js"></script>
+
+  <script src="static/d3.v3.min.js"></script>
+
+  <style>
+    body {font: 12px sans-serif;}
+    .axis path,
+    .axis line {fill: none;stroke: #000;shape-rendering: crispEdges;}
+    .dot {stroke: #000; cursor: pointer;}
+    .tick line{
+        opacity: 0.2;
+      }
+    .label-default
+    {
+      font-size: 12px;
+    }
+  </style>
+
+</head>
+<body>
+<div class="navbar navbar-default" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#navbar-collapse1">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <span class="navbar-brand" id="font-size">Deloitte Assignment</span>
+    </div>
+
+    <div id="dropdownlists"></div>
+
+</div>
+
+<div class="container">
+  <div class="row">
+    <div class="col-md-12 col-lg-12 col-sm-12 col-xs-12">
+      <svg viewBox="0 0 960 450" class="bartrans" preserveAspectRatio="xMidYMin meet" width="100%" height="100%" id="scatter-load">
+      </svg>
+    </div>
+  </div>
+</div>
+
+<script type="text/html" id="plot-dropdowns">
+  <% _.each(['X-Axis', 'Y-Axis'], function(axis, index){ %>
+    <% var axiskey = axis.replace('-', '').toLocaleLowerCase() %>
+    <ul class="nav navbar-nav collapse navbar-collapse" id="navbar-collapse1" style="padding: 0px;">
+      <li class="filter-col dropdown active">
+        <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+        <%= axis %> : <%= url_params[axiskey] %>
+        <span class="caret"></span></a>
+        <ul class="dropdown-menu dropdown-menu-form" role="menu">
+          <% _.each(dropdowns, function(dropdown, index){ %>
+            <li class="<%= (url_params[axiskey] === dropdown) ? 'active': '' %>">
+              <a class="filter-industry" a-href="?<%= axiskey %>=<%= dropdown %>">
+                <%= dropdown.replace(/_/g,' ') %>
+              </a>
+            </li>
+          <% }) %>
+        </ul>
+      </li>
+    </ul>
+  <% }) %>
+</script>
+
+</body>
+
+<script src="static/underscore-min.js"></script>
+
+<script src="scatterdata.js"></script>
+<script src="plot.js"></script>
+
+<script>
+
+  function parse_url_params() {
+    var query = location.search.substr(1).split("&");
+    var result = {};
+    query.forEach(function(part) {
+      var item = part.split("=");
+      if (item[0] != "" && item[1] != undefined){
+        result[item[0]] = decodeURIComponent(item[1]);
+      }
+    });
+    return result;
+  }
+
+  function get_xaxis_yaxis() {
+    var url_params = parse_url_params()
+    var x_axis = (url_params['xaxis'] === undefined)? 'All_Industries_Total': url_params['xaxis']
+    var y_axis = (url_params['yaxis'] === undefined)? 'Total_Manufacturing': url_params['yaxis']
+    return {'x_axis': x_axis, 'y_axis': y_axis}
+  }
+
+  function plot_dropdowns(urlparams) {
+    var template = $("script#plot-dropdowns").html();
+    var dropdown_tmpl = _.template(template)
+
+    var drop_downs = Object.keys(scatterdata[0])
+    var index = drop_downs.indexOf(5);
+    if (index > -1) {
+      drop_downs.splice(index, 1);
+    }
+
+    $("#dropdownlists").html(
+      dropdown_tmpl({
+        dropdowns: drop_downs.sort(),
+        url_params: urlparams
+      })
+    );
+  }
+
+  function mouse_event(){
+    $(document).on('mouseover', '.dot', function(){
+      var highlight = $(this).data('q')
+      $('.axisline[data-q="'+ highlight + '"]').css('opacity', 0.1)
+    })
+
+    $('.dot').on('mouseout', function(){
+      var highlight = $(this).data('q')
+      $('.axisline[data-q="'+ highlight + '"]').css('opacity', 0)
+    })
+  }
+
+  var options = {
+      'width': 960,
+      'height': 400,
+      'left': 40,
+      'right': 20,
+      'top': 20,
+      'bottom': 30
+  }
+
+  $(window).load(function() {
+    var axisvals = get_xaxis_yaxis()
+    var urlparams = parse_url_params()
+    if(urlparams['x_axis'] === undefined){
+      urlparams['xaxis'] = axisvals['x_axis']
+    }
+    if(urlparams['y_axis'] === undefined){
+      urlparams['yaxis'] = axisvals['y_axis']
+    }
+    plot_dropdowns(urlparams)
+    plot(scatterdata, options, axisvals['x_axis'], axisvals['y_axis'])
+    $(".dot").tooltip({'container': 'body', 'placement': 'top'});
+    mouse_event()
+  })
+
+
+  $(document).on('click', '.filter-industry', function(){
+
+    var axisvals = get_xaxis_yaxis()
+    var urlparams = parse_url_params()
+    if(urlparams['x_axis'] === undefined){
+      urlparams['xaxis'] = axisvals['x_axis']
+    }
+    if(urlparams['y_axis'] === undefined){
+      urlparams['yaxis'] = axisvals['y_axis']
+    }
+
+    var url = $(this).attr('a-href').replace('?', '').trim().split('=')
+    var update_url_list = []
+
+    urlparams[url[0]] = url[1]
+    $.each(urlparams, function(k, v){
+      update_url_list.push(encodeURIComponent(k) + '=' + encodeURIComponent(v))
+    })
+
+    history.pushState({}, '', '?' + update_url_list.join('&'))
+    plot_dropdowns(urlparams)
+    plot(scatterdata, options, urlparams['xaxis'], urlparams['yaxis'])
+    $(".dot").tooltip({'container': 'body', 'placement': 'top'})
+    mouse_event()
+  })
+
+</script>
+</html>
